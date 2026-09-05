@@ -1,0 +1,56 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/DogeLakeDev/ScriptsForMinecraftServer@latest/modules/sdk/%40sfmc-sdk/schemas/sapi-manifest.v2.schema.json",
+  "schemaVersion": 2,
+  "id": "data-backup",
+  "name": "数据灾备",
+  "configKey": "data_backup",
+  "enabledByDefault": true,
+  "canDisable": false,
+  "requires": [],
+  "permissions": [
+    "config:read:data_backup",
+    "db:read:sfmc_players",
+    "db:write:sfmc_players",
+    "db:read:sfmc_world",
+    "db:write:sfmc_world",
+    "db:read:sfmc_scoreboards",
+    "db:write:sfmc_scoreboards",
+    "command:scoreboard",
+    "service:backup.createSnapshot",
+    "service:backup.restoreScoreboard",
+    "service:backup.getScoreboardSnapshot",
+    "service:backup.getPlayerSnapshot",
+    "service:backup.getWorldSnapshot"
+  ],
+  "services": {
+    "provides": [
+      {
+        "name": "backup.createSnapshot",
+        "input": { "type": "object" },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "backup.restoreScoreboard",
+        "input": { "type": "object" },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "backup.getScoreboardSnapshot",
+        "input": { "type": "object" },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "backup.getPlayerSnapshot",
+        "input": { "type": "object" },
+        "output": { "type": "object" }
+      },
+      {
+        "name": "backup.getWorldSnapshot",
+        "input": { "type": "object" },
+        "output": { "type": "object" }
+      }
+    ],
+    "requires": []
+  },
+  "notes": "世界/玩家/计分板快照；严格排除 sfmc_money；scoreboard restore。"
+}

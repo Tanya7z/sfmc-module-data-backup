@@ -1,0 +1,8 @@
+{
+  "world_interval_ticks": 600,
+  "scoreboard": {
+    "enabled": true,
+    "interval_ticks": 6000,
+    "ignore_objectives": ["sfmc_money"]
+  }
+}
