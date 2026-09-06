@@ -15,7 +15,6 @@
     "db:write:sfmc_world",
     "db:read:sfmc_scoreboards",
     "db:write:sfmc_scoreboards",
-    "command:scoreboard",
     "service:backup.createSnapshot",
     "service:backup.restoreScoreboard",
     "service:backup.getScoreboardSnapshot",
@@ -26,28 +25,48 @@
     "provides": [
       {
         "name": "backup.createSnapshot",
-        "input": { "type": "object" },
-        "output": { "type": "object" }
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        }
       },
       {
         "name": "backup.restoreScoreboard",
-        "input": { "type": "object" },
-        "output": { "type": "object" }
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        }
       },
       {
         "name": "backup.getScoreboardSnapshot",
-        "input": { "type": "object" },
-        "output": { "type": "object" }
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        }
       },
       {
         "name": "backup.getPlayerSnapshot",
-        "input": { "type": "object" },
-        "output": { "type": "object" }
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        }
       },
       {
         "name": "backup.getWorldSnapshot",
-        "input": { "type": "object" },
-        "output": { "type": "object" }
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        }
       }
     ],
     "requires": []
