@@ -94,12 +94,24 @@ async function upsertPlayer(row: Record<string, unknown>): Promise<void> {
 }
 
 async function saveAllPlayers(): Promise<void> {
-  for (const player of world.getAllPlayers()) {
-    try {
-      await upsertPlayer(snapshotPlayer(player));
-    } catch (err) {
-      debug.e("BACKUP", `player ${player.id}`, err instanceof Error ? err : new Error(String(err)));
-    }
+  const players = world.getAllPlayers();
+  if (players.length === 0) return;
+  try {
+    await db.tx(async (tx) => {
+      for (const player of players) {
+        const row = snapshotPlayer(player);
+        const id = String(row.id);
+        const existing = await tx.get(PLAYERS_TABLE, id);
+        if (existing) await tx.update(PLAYERS_TABLE, id, row);
+        else await tx.insert(PLAYERS_TABLE, row);
+      }
+    });
+  } catch (err) {
+    debug.e(
+      "BACKUP",
+      "saveAllPlayers",
+      err instanceof Error ? err : new Error(String(err)),
+    );
   }
 }
 
@@ -157,7 +169,8 @@ async function snapshotScoreboards(): Promise<string> {
   const old = await db.query<{ id: string }>(SCORE_TABLE, { limit: 50000 });
   await db.tx(async (tx) => {
     for (const r of old) await tx.delete(SCORE_TABLE, r.id);
-    for (const r of rows) await tx.insert(SCORE_TABLE, r as unknown as Record<string, unknown>);
+    for (const r of rows)
+      await tx.insert(SCORE_TABLE, r as unknown as Record<string, unknown>);
   });
 
   latestSnapshotId = snapshotId;
@@ -170,9 +183,7 @@ async function restoreScoreboard(opts: {
 }): Promise<{ ok: boolean; restoredCount: number }> {
   const snapshotId = opts.snapshotId || latestSnapshotId;
   let rows = await db.query<ScoreRow>(SCORE_TABLE, {
-    where: snapshotId
-      ? { eq: ["snapshot_id", snapshotId] }
-      : undefined,
+    where: snapshotId ? { eq: ["snapshot_id", snapshotId] } : undefined,
     limit: 50000,
   });
   if (!snapshotId) {
@@ -221,7 +232,9 @@ async function restoreScoreboard(opts: {
   return { ok: true, restoredCount: restored };
 }
 
-async function createSnapshot(scope: string): Promise<{ ok: boolean; snapshotId: string }> {
+async function createSnapshot(
+  scope: string,
+): Promise<{ ok: boolean; snapshotId: string }> {
   if (scope === "world" || scope === "all") {
     await saveWorld();
     await saveAllPlayers();
@@ -233,6 +246,27 @@ async function createSnapshot(scope: string): Promise<{ ok: boolean; snapshotId:
   return { ok: true, snapshotId };
 }
 
+function registerCommands(): void {
+  Command.register(
+    "scoreboard",
+    "scoreboard.restore",
+    (player) => {
+      // 平台仅首 token；子命令 restore 通过同一入口触发恢复
+      void restoreScoreboard({}).then((r) => {
+        const msg = r.ok
+          ? `计分板恢复完成，共 ${r.restoredCount} 条（已跳过 ignore 名单）`
+          : "计分板恢复失败：无可用快照";
+        if (player) Msg.info(msg, player);
+        else debug.i("BACKUP", msg);
+      });
+    },
+    "scoreboard restore — 从最新快照恢复通用计分板",
+    MODULE_ID,
+  );
+}
+
+registerCommands();
+
 ModuleRegistry.register({
   id: MODULE_ID,
   afterWorldLoad: true,
@@ -240,29 +274,15 @@ ModuleRegistry.register({
     registerPermissions() {
       Permission.register("scoreboard.restore", Permission.Admin);
     },
-    registerCommands() {
-      Command.register(
-        "scoreboard",
-        "scoreboard.restore",
-        (player) => {
-          // 平台仅首 token；子命令 restore 通过同一入口触发恢复
-          void restoreScoreboard({}).then((r) => {
-            const msg = r.ok
-              ? `计分板恢复完成，共 ${r.restoredCount} 条（已跳过 ignore 名单）`
-              : "计分板恢复失败：无可用快照";
-            if (player) Msg.info(msg, player);
-            else debug.i("BACKUP", msg);
-          });
-        },
-        "scoreboard restore — 从最新快照恢复通用计分板",
-        MODULE_ID,
-      );
-    },
     registerEvents() {
       const spawnCb = world.afterEvents.playerSpawn.subscribe((ev) => {
         if (ev.initialSpawn) {
           void upsertPlayer(snapshotPlayer(ev.player)).catch((err) =>
-            debug.e("BACKUP", "playerSpawn", err instanceof Error ? err : new Error(String(err))),
+            debug.e(
+              "BACKUP",
+              "playerSpawn",
+              err instanceof Error ? err : new Error(String(err)),
+            ),
           );
         }
       });
@@ -287,7 +307,10 @@ ModuleRegistry.register({
         if (typeof sc.interval_ticks === "number" && sc.interval_ticks > 0) {
           scoreInterval = sc.interval_ticks;
         }
-        if (Array.isArray(sc.ignore_objectives) && sc.ignore_objectives.length) {
+        if (
+          Array.isArray(sc.ignore_objectives) &&
+          sc.ignore_objectives.length
+        ) {
           ignoreObjectives = sc.ignore_objectives.map(String);
         }
       }
@@ -327,19 +350,37 @@ ModuleRegistry.register({
         try {
           latestSnapshotId = await snapshotScoreboards();
         } catch (err) {
-          debug.e("BACKUP", "init scoreboard", err instanceof Error ? err : new Error(String(err)));
+          debug.e(
+            "BACKUP",
+            "init scoreboard",
+            err instanceof Error ? err : new Error(String(err)),
+          );
         }
       }
 
       worldRunId = system.runInterval(() => {
-        void saveWorld();
-        void saveAllPlayers();
+        void (async () => {
+          try {
+            await saveWorld();
+            await saveAllPlayers();
+          } catch (err) {
+            debug.e(
+              "BACKUP",
+              "periodic save",
+              err instanceof Error ? err : new Error(String(err)),
+            );
+          }
+        })();
       }, worldInterval);
 
       if (scoreEnabled) {
         scoreRunId = system.runInterval(() => {
           void snapshotScoreboards().catch((err) =>
-            debug.e("BACKUP", "score tick", err instanceof Error ? err : new Error(String(err))),
+            debug.e(
+              "BACKUP",
+              "score tick",
+              err instanceof Error ? err : new Error(String(err)),
+            ),
           );
         }, scoreInterval);
       }
@@ -352,15 +393,21 @@ ModuleRegistry.register({
       unprovide.push(
         service.provide("backup.restoreScoreboard", (input) =>
           restoreScoreboard({
-            objective: typeof input.objective === "string" ? input.objective : undefined,
-            snapshotId: typeof input.snapshotId === "string" ? input.snapshotId : undefined,
+            objective:
+              typeof input.objective === "string" ? input.objective : undefined,
+            snapshotId:
+              typeof input.snapshotId === "string"
+                ? input.snapshotId
+                : undefined,
           }),
         ),
       );
       unprovide.push(
         service.provide("backup.getScoreboardSnapshot", async (input) => {
           const snapshotId =
-            typeof input.snapshotId === "string" ? input.snapshotId : latestSnapshotId;
+            typeof input.snapshotId === "string"
+              ? input.snapshotId
+              : latestSnapshotId;
           let rows = await db.query<ScoreRow>(SCORE_TABLE, {
             where: snapshotId ? { eq: ["snapshot_id", snapshotId] } : undefined,
             limit: 50000,
@@ -386,13 +433,19 @@ ModuleRegistry.register({
         service.provide("backup.getPlayerSnapshot", async (input) => {
           const playerId = String(input.playerId ?? "");
           if (!playerId) return { player: null };
-          const row = await db.get<Record<string, unknown>>(PLAYERS_TABLE, playerId);
+          const row = await db.get<Record<string, unknown>>(
+            PLAYERS_TABLE,
+            playerId,
+          );
           return { player: row ?? null };
         }),
       );
       unprovide.push(
         service.provide("backup.getWorldSnapshot", async () => {
-          const row = await db.get<Record<string, unknown>>(WORLD_TABLE, "singleton");
+          const row = await db.get<Record<string, unknown>>(
+            WORLD_TABLE,
+            "singleton",
+          );
           return { world: row ?? null };
         }),
       );
@@ -427,9 +480,15 @@ ModuleRegistry.register({
         }
         scoreRunId = undefined;
       }
-      void saveWorld();
-      void saveAllPlayers();
-      if (scoreEnabled) void snapshotScoreboards();
+      void (async () => {
+        try {
+          await saveWorld();
+          await saveAllPlayers();
+          if (scoreEnabled) await snapshotScoreboards();
+        } catch {
+          /* best-effort */
+        }
+      })();
       debug.i("BACKUP", "cleanup");
     },
   },
