@@ -71,5 +71,5 @@
     ],
     "requires": []
   },
-  "notes": "世界/玩家/计分板快照；严格排除 sfmc_money；scoreboard restore。"
+  "notes": "触发式玩家快照、启停世界摘要、周期计分板快照；所有数据库任务串行执行。"
 }

@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/module-data-backup",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "SAPI module: 世界与计分板灾备",
   "main": "sapi/src/index.ts",
@@ -44,4 +44,3 @@
     "node": ">=22.13.0"
   }
 }
-

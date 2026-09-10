@@ -1,5 +1,5 @@
 {
-  "world_interval_ticks": 600,
+  "player_reconcile_interval_ticks": 6000,
   "scoreboard": {
     "enabled": true,
     "interval_ticks": 6000,
