@@ -6,7 +6,7 @@ import { Player, system, world } from "@minecraft/server";
 import { config } from "@sfmc-bds/sdk/sapi/config";
 import { db } from "@sfmc-bds/sdk/sapi/db";
 import { ModuleRegistry } from "@sfmc-bds/sdk/module-loader";
-import { Command, debug, Msg, Permission } from "@sfmc-bds/sdk/sapi/runtime";
+import { debug, Permission } from "@sfmc-bds/sdk/sapi/runtime";
 import { service } from "@sfmc-bds/sdk/sapi/service";
 import {
   BackupTaskQueue,
@@ -323,29 +323,6 @@ async function createSnapshot(
   }
   return { ok: true, snapshotId };
 }
-
-function registerCommands(): void {
-  Command.register(
-    "scoreboard",
-    "scoreboard.restore",
-    (player) => {
-      // 平台仅首 token；子命令 restore 通过同一入口触发恢复
-      void backupTasks
-        .run(() => restoreScoreboard({}))
-        .then((r) => {
-          const msg = r.ok
-            ? `计分板恢复完成，共 ${r.restoredCount} 条（已跳过 ignore 名单）`
-            : "计分板恢复失败：无可用快照";
-          if (player) Msg.info(msg, player);
-          else debug.i("BACKUP", msg);
-        });
-    },
-    "scoreboard restore — 从最新快照恢复通用计分板",
-    MODULE_ID,
-  );
-}
-
-registerCommands();
 
 ModuleRegistry.register({
   id: MODULE_ID,
