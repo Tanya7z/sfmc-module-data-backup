@@ -7,9 +7,9 @@ Wave B official SFMC module: **data-backup**（世界与计分板灾备）.
 ## Develop
 
 ```bash
-npm install
-npm run typecheck
-npm test
+pnpm install
+pnpm run typecheck
+pnpm run test
 ```
 
 Install into platform:
